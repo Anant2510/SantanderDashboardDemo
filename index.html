@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Indi Bank Customer Dashboard </title>
+<style>
+  :root{ --bg:#f6f8fb; --ink:#0c1a2a; --muted:#5b6b7b; --primary:#0A7F5A; --accent:#0b3a97; --card:#ffffff; --radius:12px; --shadow:0 10px 28px rgba(20,40,80,.14) }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background: linear-gradient(90deg, var(--primary), #11926a 40%, #15a679); color:#fff; padding:12px 18px; display:flex; align-items:center; gap:12px; box-shadow: 0 2px 10px rgba(0,0,0,.08)}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px}
+  .wrap{max-width:1180px;margin:24px auto;padding:0 16px}
+  .uploader{background:var(--card);padding:18px;border-radius:var(--radius);box-shadow:var(--shadow);display:grid;gap:12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .drop{border:2px dashed #c9d3e1;border-radius:10px;background:#f8fafc;color:#42516a;padding:10px 12px;flex:1;min-width:260px}
+  input[type=file]{display:block}
+  button{background:var(--primary);color:#fff;padding:10px 18px;border:none;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 6px 16px rgba(10,127,90,.24)}
+  button.secondary{background:#e6eef9;color:#0b3a97}
+  .toolbar{display:grid;grid-template-columns: 1.2fr .9fr .9fr auto auto; gap:10px; align-items:end; background:var(--card); padding:14px; border-radius:var(--radius); box-shadow:var(--shadow); margin-top:16px}
+  .toolbar label{font-size:12px;color:#42516a;display:block;margin-bottom:4px}
+  .toolbar input[type=text], .toolbar input[type=date]{width:100%;padding:10px;border:1px solid #d9e1ee;border-radius:8px}
+  .kpis{display:flex;gap:14px;margin:16px 0}
+  .kpi{background:var(--card);padding:14px 16px;border-radius:10px;box-shadow:var(--shadow);min-width:160px}
+  .kpi .v{font-weight:800;font-size:20px;color:#0b3a97}
+  table{width:100%;border-collapse:collapse;background:var(--card);box-shadow:var(--shadow);border-radius:12px;overflow:hidden}
+  thead th{background:#eef3fa;color:#5b6b7b;padding:10px 12px;text-align:left;font-size:13px;position:sticky;top:0}
+  td{padding:10px 12px;border-top:1px solid #eef2f7;font-size:14px}
+  .footer{margin:22px 0;color:#95a0ad;font-size:12px;text-align:center}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef3fa;color:#2c3f57;border:1px solid #dfe7f1;font-size:12px}
+  .linklike{background:#eef3fa;color:#0b3a97;border:1px solid #dfe7f1}
+</style>
+</head>
+<body>
+  <header><h1>Indi Bank Customer Dashboard</h1></header>
+  <div class="wrap">
+
+    <!-- Step 1: Upload -->
+    <section class="uploader" id="uploader">
+      <div class="row">
+        <div class="drop">
+          <div><b>Upload JSON or CSV</b></div>
+          <input type="file" id="fileInput" accept=".json,.csv" />
+        </div>
+        <div class="row">
+          <button id="processBtn" disabled>Process</button>
+          <button id="demoBtn" class="secondary" title="Load sample data">Load demo data</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Dashboard -->
+    <div class="toolbar" style="display:none" id="filters">
+      <div>
+        <label for="q">Search (Customer ID or Name)</label>
+        <input id="q" type="text" placeholder="e.g., 345345 or Anant Singh" />
+      </div>
+      <div>
+        <label for="d1">From date</label>
+        <input id="d1" type="date" />
+      </div>
+      <div>
+        <label for="d2">To date</label>
+        <input id="d2" type="date" />
+      </div>
+      <div>
+        <button id="applyBtn">Apply filters</button>
+      </div>
+      <div>
+        <button id="clearBtn" class="secondary">Clear</button>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpiRow" style="display:none">
+      <div class="kpi"><div class="v" id="kTxn">0</div>Transactions</div>
+      <div class="kpi"><div class="v" id="kMer">0</div>Merchants</div>
+      <div class="kpi"><div class="v" id="kAmt">€0</div>Total Amount</div>
+      <div class="kpi"><div class="v" id="kUsers">0</div>Customers</div>
+    </div>
+
+    <div style="margin:10px 2px;display:none" id="metaRow">
+      <span id="fileName" class="badge">No file</span>
+      <span id="rowsInfo" class="badge">0 rows</span>
+      <button id="changeBtn" class="badge linklike">Change file</button>
+    </div>
+
+    <table id="tbl" style="display:none"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+
+    <div class="footer">© 2026 Indi Bank</div>
+  </div>
+
+<script>
+// ------------------ DEMO DATA ------------------
+function generateDemo(){
+  const rnd = (min,max)=> Math.random()*(max-min)+min;
+  const pick = (arr)=> arr[Math.floor(Math.random()*arr.length)];
+  const now = new Date('2026-01-16T12:00:00Z');
+  const start = new Date(now.getTime()-29*24*3600*1000);
+  const users=[
+    {id:'345345', name:'Anant Singh', email:'Anant.2.Singh@coforge.com', card:'Visa Platinum', country:'Germany'},
+    {id:'458812', name:'Anna Müller', email:'anna.mueller@example.eu', card:'Visa Gold', country:'Germany'},
+    {id:'572901', name:'Pierre Dubois', email:'pierre.dubois@example.eu', card:'Mastercard World', country:'France'},
+    {id:'663210', name:'Lucía García', email:'lucia.garcia@example.eu', card:'Visa Signature', country:'Spain'}
+  ];
+  const merchants=[
+    ['Virgin Australia','Airline',4511,'Travel & Lodging'],['Lufthansa','Airline',4511,'Travel & Lodging'],['Ryanair','Airline',4511,'Travel & Lodging'],
+    ['Booking.com','Travel',4722,'Travel & Lodging'],['IKEA','Retail',5712,'Retail'],['Lidl','Retail',5411,'Grocery'],['Vodafone DE','Telecom',4814,'Telecom & Internet'],['Starbucks','Retail',5814,'Restaurants & Cafés'],['Decathlon','Retail',5941,'Retail'],['Shell','Travel',5541,'Fuel']
+  ];
+  const status=['SUCCESS','APPROVED','FAILED','SETTLED','COMPLETED'];
+  const channel=['Card','SCT Inst','SEPA','SWIFT','SEPA DD'];
+  let seq=8000, rows=[];
+  for(const u of users){
+    const n = Math.floor(rnd(6,9));
+    for(let i=0;i<n;i++){
+      const dt = new Date(start.getTime()+Math.floor(rnd(0,30))*24*3600*1000+Math.floor(rnd(0,24))*3600*1000);
+      const m = pick(merchants);
+      let s = pick(status);
+      let amt = (s==='FAILED')? rnd(5,60): rnd(10,450);
+      rows.push({
+        'Transaction Id': `EU-TXN-${seq++}`,
+        'Card Type': u.card,
+        'Merchant': m[0],
+        'Merchant type': m[1],
+        'Amount': Number(amt.toFixed(2)),
+        'Status': s,
+        'Transaction Date': dt.toISOString().slice(0,10),
+        'Customer ID': u.id,
+        'Customer Name': u.name,
+        'Email': u.email,
+        'Country': u.country,
+        'Channel': pick(channel),
+        'Reference': `REF-${seq}-${Math.floor(rnd(100,999))}`,
+        'IBAN (masked)': `DE${Math.floor(rnd(10,99))}****${Math.floor(rnd(1000,9999))}****${Math.floor(rnd(1000,9999))}`,
+        'MCC': m[2],
+        'Merchant Category Group': m[3]
+      });
+    }
+  }
+  const anant = rows.filter(r=>r['Customer ID']==='345345');
+  if(anant.length){
+    anant[0]['Merchant']='Virgin Australia'; anant[0]['Merchant type']='Airline'; anant[0]['MCC']=4511; anant[0]['Merchant Category Group']='Travel & Lodging';
+    if(anant[1]){ anant[1]['Merchant']='IKEA'; anant[1]['Merchant type']='Retail'; anant[1]['MCC']=5712; anant[1]['Merchant Category Group']='Retail'; }
+  }
+  return rows;
+}
+
+// ------------------ PARSE / NORMALIZE ------------------
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+  if(lines.length===0) return [];
+  const headers = lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const parts = lines[i].match(/([^,\"]+|"[^"]*")+/g) || [];
+    const obj={};
+    headers.forEach((h,idx)=>{ let v=(parts[idx]||'').replace(/^"|"$/g,''); obj[h]=v; });
+    rows.push(obj);
+  }
+  return rows;
+}
+function toDateStr(v){ if(!v) return ''; const s=String(v); if(/\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10); return s; }
+function normalize(records){
+  return records.map(r=>{ const out={...r}; if(!out['Transaction Date']){ if(out['Timestamp']) out['Transaction Date']=toDateStr(out['Timestamp']); else if(out['Date']) out['Transaction Date']=toDateStr(out['Date']); } else out['Transaction Date']=toDateStr(out['Transaction Date']); ['Customer ID','Customer Name','Email','Merchant','Merchant type','Status','Card Type','Channel','Reference'].forEach(k=>{ if(out[k]!=null) out[k]=String(out[k]); }); if(out['Amount']!=null){ const n=Number(String(out['Amount']).replace(/[^0-9.\-]/g,'')); if(!Number.isNaN(n)) out['Amount']=n; } return out; });
+}
+const sum=(arr,sel)=>arr.reduce((a,b)=>a+(Number(sel(b))||0),0);
+
+// ------------------ UI STATE ------------------
+let DATA=[]; let FILE_NAME='';
+const uploader = document.getElementById('uploader');
+const fileInput = document.getElementById('fileInput');
+const processBtn = document.getElementById('processBtn');
+const demoBtn = document.getElementById('demoBtn');
+const filters = document.getElementById('filters');
+const kpiRow = document.getElementById('kpiRow');
+const metaRow = document.getElementById('metaRow');
+const thead = document.getElementById('thead');
+const tbody = document.getElementById('tbody');
+const tableEl = document.getElementById('tbl');
+const kTxn = document.getElementById('kTxn');
+const kMer = document.getElementById('kMer');
+const kAmt = document.getElementById('kAmt');
+const kUsers = document.getElementById('kUsers');
+const fileName = document.getElementById('fileName');
+const rowsInfo = document.getElementById('rowsInfo');
+const changeBtn = document.getElementById('changeBtn');
+
+const q = document.getElementById('q');
+const d1 = document.getElementById('d1');
+const d2 = document.getElementById('d2');
+const applyBtn = document.getElementById('applyBtn');
+const clearBtn = document.getElementById('clearBtn');
+
+const PRIMARY_COLS=['Transaction Id','Card Type','Merchant','Merchant type','Amount','Status','Transaction Date','Customer ID','Customer Name','Email'];
+let COLUMNS=[];
+
+function pickColumns(rows){ if(!rows.length) return []; const keys=Object.keys(rows[0]); const ordered=PRIMARY_COLS.filter(c=>keys.includes(c)); for(const k of keys){ if(!ordered.includes(k)) ordered.push(k); } return ordered; }
+function renderHeader(){ thead.innerHTML='<tr>'+COLUMNS.map(c=>`<th>${c}</th>`).join('')+'</tr>'; }
+function renderRows(rows){ const html=rows.map(r=>'<tr>'+COLUMNS.map(c=>{ let v=r[c]; if(c==='Transaction Date') v=toDateStr(v); if(c==='Amount'&&v!=null) v=`${Number(v).toFixed(2)} EUR`; return `<td>${v!=null?v:''}</td>`; }).join('')+'</tr>').join(''); tbody.innerHTML= html || '<tr><td colspan="'+COLUMNS.length+'" style="color:#556270;padding:20px">No rows match current filters.</td></tr>'; }
+
+function applyFilters(){ const term=q.value.trim().toLowerCase(); const from=d1.value||null; const to=d2.value||null; let rows=DATA.slice(); if(term){ rows=rows.filter(r=> String(r['Customer ID']||'').toLowerCase().includes(term) || String(r['Customer Name']||'').toLowerCase().includes(term)); } if(from){ rows=rows.filter(r=> (r['Transaction Date']||'') >= from ); } if(to){ rows=rows.filter(r=> (r['Transaction Date']||'') <= to ); } rows.sort((a,b)=> String(b['Transaction Date']).localeCompare(String(a['Transaction Date'])) || (Number(b['Amount'])-Number(a['Amount'])) ); renderRows(rows); kTxn.textContent=rows.length; kMer.textContent=new Set(rows.map(r=>r['Merchant'])).size; kUsers.textContent=new Set(rows.map(r=>r['Customer ID'])).size; kAmt.textContent='€'+sum(rows,r=>r['Amount']).toFixed(2); rowsInfo.textContent=rows.length+' rows (filtered)'; }
+
+function showDashboard(){ filters.style.display='grid'; kpiRow.style.display='flex'; metaRow.style.display='inline-block'; tableEl.style.display='table'; }
+function hideUploader(){ uploader.style.display='none'; }
+function showUploader(){ uploader.style.display='grid'; filters.style.display='none'; kpiRow.style.display='none'; metaRow.style.display='none'; tableEl.style.display='none'; fileInput.value=''; processBtn.disabled=true; q.value=''; d1.value=''; d2.value=''; tbody.innerHTML=''; thead.innerHTML=''; }
+
+function loadRows(rows, source){ const norm=normalize(rows); DATA=norm; FILE_NAME=source||'data'; COLUMNS=pickColumns(norm); renderHeader(); fileName.textContent=FILE_NAME+' • '+norm.length+' records'; rowsInfo.textContent=norm.length+' rows'; hideUploader(); showDashboard(); applyFilters(); }
+
+fileInput.addEventListener('change',(e)=>{ processBtn.disabled=!e.target.files[0]; });
+processBtn.addEventListener('click',()=>{ const f=fileInput.files[0]; if(!f) return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const txt=ev.target.result||''; let rows=[]; if(/^\s*\[/.test(txt)||/^\s*\{/.test(txt)) rows=JSON.parse(txt); else rows=parseCSV(txt); loadRows(rows, f.name); }catch(err){ alert('Unable to read file.\n'+err.message); } }; reader.readAsText(f); });
+
+demoBtn.addEventListener('click',()=>{ const rows=generateDemo(); loadRows(rows,'demo.json'); });
+changeBtn.addEventListener('click',showUploader);
+
+applyBtn.addEventListener('click',applyFilters);
+clearBtn.addEventListener('click',()=>{ q.value=''; d1.value=''; d2.value=''; applyFilters(); });
+q.addEventListener('keydown',(e)=>{ if(e.key==='Enter') applyFilters(); });
+d1.addEventListener('change',applyFilters);
+d2.addEventListener('change',applyFilters);
+</script>
+</body>
+</html>
